@@ -20,6 +20,7 @@
 #include <linux/device.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <linux/string.h>
 
 /**************************************************************************************** 
  * Definition
@@ -42,33 +43,22 @@
 #define LCD_I2C_D6  P6
 #define LCD_I2C_D7  P7
 
-// typedef struct
-// {
-//     struct i2c_client *client;
-//     u8 command;
-// } lcd_i2c_struct_t;
-
-
-
-
 /**************************************************************************************** 
  * Variable
  ****************************************************************************************/
-
-
-
-
 /* Register device match tabble */
 static const struct of_device_id lcd_i2c_of_match[] = {
     {.compatible = "lcd_16x2"},
     {},
 };
 
+
+static struct i2c_client *client_data_ptr = NULL;
+
 /**************************************************************************************** 
  * Function implementation
  ****************************************************************************************/
-
-u8 lcd_i2c_send_cmd(u8 command, struct i2c_client *client)
+u8 lcd_i2c_send_cmd(u8 command, u32 lcd_address)
 {
     u8 data_upper = 0;
     u8 data_lower = 0;
@@ -91,17 +81,12 @@ u8 lcd_i2c_send_cmd(u8 command, struct i2c_client *client)
     /* Create dummy frame because LCD need delay between two intructions */
     data_send[3] = data_lower | (LCD_I2C_BLK);
 
-    pr_info("data[0] = %d\n", data_send[0]);
-    pr_info("data[1] = %d\n", data_send[1]);
-    pr_info("data[2] = %d\n", data_send[2]);
-    pr_info("data[3] = %d\n", data_send[3]);
-
-    messages.addr = client->addr;
-    messages.flags = client->flags;
+    messages.addr = lcd_address;
+    messages.flags = client_data_ptr->flags;
     messages.len = 4;
     messages.buf = &data_send[0];
 
-    ret = i2c_transfer(client->adapter, &messages, 1);
+    ret = i2c_transfer(client_data_ptr->adapter, &messages, 1);
     if(ret < 0)
     {
         pr_info("%s %d tranfer failed\n", __func__, __LINE__);
@@ -120,39 +105,7 @@ u8 lcd_i2c_send_cmd(u8 command, struct i2c_client *client)
     return 0;
 }
 
-u8 lcd_i2c_send_test(u8 data, struct i2c_client *client)
-{
-    struct i2c_msg messages;
-    u8 ret = -1;
-
-    messages.addr = client->addr;
-    messages.flags = client->flags;
-    messages.len = 1;
-    messages.buf = &data;
-
-    pr_info("%s %d client->flags = %d\n", __func__, __LINE__, client->flags);
-    pr_info("%s %d messages.buf = %d\n", __func__, __LINE__, *messages.buf);
-
-    ret = i2c_transfer(client->adapter, &messages, 1);
-    if(ret < 0)
-    {
-        pr_info("%s %d tranfer failed\n", __func__, __LINE__);
-        return -1;
-    }
-    else if(ret != 1)
-    {
-        pr_info("%s %d ack failed\n", __func__, __LINE__);
-        return -1;
-    }
-    else
-    {
-        /**/
-    }
-
-    return 0;
-}
-
-u8 lcd_i2c_send_data(u8 data, struct i2c_client *client)
+u8 lcd_i2c_send_data(u8 data, u32 lcd_address)
 {
     u8 data_upper = 0;
     u8 data_lower = 0;
@@ -175,12 +128,12 @@ u8 lcd_i2c_send_data(u8 data, struct i2c_client *client)
     /* Create dummy frame because LCD need delay between two intructions */
     data_send[3] = data_lower | (LCD_I2C_BLK | LCD_I2C_RS);
 
-    messages.addr = client->addr;
-    messages.flags = client->flags;
+    messages.addr = lcd_address;
+    messages.flags = client_data_ptr->flags;
     messages.len = 4;
     messages.buf = &data_send[0];
 
-    ret = i2c_transfer(client->adapter, &messages, 1);
+    ret = i2c_transfer(client_data_ptr->adapter, &messages, 1);
     if(ret < 0)
     {
         pr_info("%s %d tranfer failed\n", __func__, __LINE__);
@@ -199,88 +152,58 @@ u8 lcd_i2c_send_data(u8 data, struct i2c_client *client)
     return 0;
 }
 
-u8 lcd_init(struct i2c_client *client)
+static void lcd_send_string(u8 *string, u32 lcd_address)
+{
+    u32 index = 0;
+
+    for(index = 0; index < strlen(string); index ++)
+    {
+        lcd_i2c_send_data(string[index], lcd_address);
+    }
+}
+
+u8 lcd_init(u32 lcd_address)
 {
     u8 ret = 0;
 
+    pr_info("lcd_address = %d\n", lcd_address);
+
     /* delay 50ms */
     mdelay(50);
-    ret |= lcd_i2c_send_cmd(0x30, client);
+    ret |= lcd_i2c_send_cmd(0x30, lcd_address);
     mdelay(5);
-    ret |= lcd_i2c_send_cmd(0x30, client);
+    ret |= lcd_i2c_send_cmd(0x30, lcd_address);
     mdelay(1);
-    ret |= lcd_i2c_send_cmd(0x30, client);
+    ret |= lcd_i2c_send_cmd(0x30, lcd_address);
     mdelay(10);
-    ret |= lcd_i2c_send_cmd(0x20, client);
+    ret |= lcd_i2c_send_cmd(0x20, lcd_address);
     mdelay(10);
-    ret |= lcd_i2c_send_cmd(0x28, client);
+    ret |= lcd_i2c_send_cmd(0x28, lcd_address);
     mdelay(1);
-    ret |= lcd_i2c_send_cmd(0x08, client);
+    ret |= lcd_i2c_send_cmd(0x08, lcd_address);
     mdelay(1);
-    ret |= lcd_i2c_send_cmd(0x01, client);
+    ret |= lcd_i2c_send_cmd(0x01, lcd_address);
     mdelay(2);
-    ret |= lcd_i2c_send_cmd(0x06, client);
+    ret |= lcd_i2c_send_cmd(0x06, lcd_address);
     mdelay(1);
-    ret |= lcd_i2c_send_cmd(0x0C, client);
+    ret |= lcd_i2c_send_cmd(0x0C, lcd_address);
 
-    ret |= lcd_i2c_send_data('H', client);
-    pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
-    ret |= lcd_i2c_send_data('E', client);
-    pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
-    ret |= lcd_i2c_send_data('L', client);
-    pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
-    ret |= lcd_i2c_send_data('L', client);
-    pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
-    ret |= lcd_i2c_send_data('O', client);
-    pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
+    lcd_send_string("Hi", lcd_address);
 
     return ret;
 }
 
 int lcd_i2c_driver_probe(struct i2c_client *client)
 {
-    u8 dummy_data = 0;
     int ret = -1;
 
-    struct i2c_msg messages =
-    {
-        .addr = client->addr,
-        .flags = 0,
-        .buf = &dummy_data,
-        .len = 1
-    };
+    pr_info("Initialize lcd ...\n");
 
-    pr_info("%s %d\n", __func__, __LINE__);
-    pr_info("client->addr = %d\n", client->addr);
+    client_data_ptr = client;
+    pr_info("client_data_ptr->flag = %d\n", client_data_ptr->flags);
 
-    pr_info("Pinging Lcd device ...\n");
-
-    if(NULL == client->adapter)
-    {
-        pr_info("client->adapter is NULL");
-        return -1;
-    }
-
-    // ret = i2c_transfer(client->adapter, &messages, 1);
-
-    // /*ret = i2c_master_send(client, &dummy_data, 0);*/
-    // if(ret < 0)
-    // {
-    //     pr_info("i2c tranfer failed\n");
-    //     return -1;
-    // }
-    // else if(ret != 1)
-    // {
-    //     pr_info("i2c ack failed\n");
-    //     return -1;
-    // }
-    // else
-    // {
-    //     pr_info("Ping device successfully\n");
-    // }
-
-    // pr_info("Initialize lcd ...\n");
-    ret = lcd_init(client);
+    pr_info("Initialize lcd ...\n");
+    ret = lcd_init(client->addr);
     if(ret != 0)
     {
         pr_info("%s %d lcd_init failed\n");
@@ -290,9 +213,6 @@ int lcd_i2c_driver_probe(struct i2c_client *client)
         pr_info("%s %d lcd_init successfully\n", __func__, __LINE__);
     }
 
-    // ret = lcd_i2c_send_test(0xff, client);
-    // pr_info("%s %d ret = %d\n", __func__, __LINE__, ret);
-
     return 0;
 }
 
@@ -300,21 +220,17 @@ int lcd_i2c_driver_remove(struct i2c_client *client)
 {
     pr_info("%s %d\n", __func__, __LINE__);
 
+    if(client_data_ptr != NULL)
+    {
+        kfree(client_data_ptr);
+    }
+
     return 0;
 }
-
-#if 0
-struct i2c_device_id lcd_i2c_device_id = 
-{
-	.name = "lcd_16x2",
-	.driver_data = 1	/* Data private to the driver */
-};
-#endif
 
 static struct i2c_driver lcd_i2c_driver = {
     .probe_new = lcd_i2c_driver_probe,
     .remove = lcd_i2c_driver_remove,
-    /*.id_table = &lcd_i2c_device_id,*/
     .driver = {
         .name = "lcd_i2c",
         .of_match_table = lcd_i2c_of_match,
