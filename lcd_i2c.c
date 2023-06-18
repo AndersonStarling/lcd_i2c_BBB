@@ -286,15 +286,8 @@ int lcd_i2c_driver_remove(struct i2c_client *client)
 {
     pr_info("%s %d\n", __func__, __LINE__);
 
-<<<<<<< HEAD
-    if(client_data_ptr != NULL)
-    {
-        kfree(client_data_ptr);
-    }
-=======
     lcd_i2c_send_cmd(LCD_CMD_CLEAR_DISPLAY, LCD_ADDRESS);
     misc_deregister(&lcd_i2c_device);
->>>>>>> bec7cd8... Update app and lcd_i2c kernel
 
     return 0;
 }
