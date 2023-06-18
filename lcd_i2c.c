@@ -64,8 +64,6 @@ static struct i2c_client *client_data_ptr = NULL;
 /**************************************************************************************** 
  * Function implementation
  ****************************************************************************************/
-<<<<<<< HEAD
-=======
 static ssize_t lcd_i2c_write(struct file *file, const char __user *buf, size_t len, loff_t *pos)
 {
     u8 *buffer_device = NULL;
@@ -126,7 +124,6 @@ static ssize_t lcd_i2c_ping(struct file *file, char __user *buf, size_t len, lof
 }
 
 
->>>>>>> bec7cd8... Update app and lcd_i2c kernel
 u8 lcd_i2c_send_cmd(u8 command, u32 lcd_address)
 {
     u8 data_upper = 0;
