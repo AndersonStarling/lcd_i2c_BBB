@@ -43,6 +43,12 @@
 #define LCD_I2C_D6  P6
 #define LCD_I2C_D7  P7
 
+
+#define LCD_ADDRESS (client_data_ptr->addr)
+#define LCD_CMD_CLEAR_DISPLAY 0x01U
+#define LCD_CMD_RETURN_HOME   0x02U
+
+
 /**************************************************************************************** 
  * Variable
  ****************************************************************************************/
@@ -58,6 +64,69 @@ static struct i2c_client *client_data_ptr = NULL;
 /**************************************************************************************** 
  * Function implementation
  ****************************************************************************************/
+<<<<<<< HEAD
+=======
+static ssize_t lcd_i2c_write(struct file *file, const char __user *buf, size_t len, loff_t *pos)
+{
+    u8 *buffer_device = NULL;
+    int ret = -1;
+
+    buffer_device = kmalloc(sizeof(u8), len + 1);
+
+    /* clear lcd display and return home */
+    lcd_i2c_send_cmd(LCD_CMD_RETURN_HOME, LCD_ADDRESS);
+    mdelay(2);
+    lcd_i2c_send_cmd(LCD_CMD_CLEAR_DISPLAY, LCD_ADDRESS);
+
+    ret = copy_from_user(buffer_device, buf, len + 1);
+    if(0 == ret)
+    {
+        pr_info("buffer_device = %s\n", buffer_device);
+        lcd_send_string(buffer_device, client_data_ptr->addr);
+    }
+    else
+    {
+        pr_info("%s %d failed\n", __func__, __LINE__);
+    }
+
+    kfree(buffer_device);
+
+    return 1;
+}
+
+static int lcd_i2c_open(struct inode *inode, struct file *file)
+{
+
+    pr_info("%s %d\n", __func__, __LINE__);
+
+    return 0;
+}
+
+static int lcd_i2c_release(struct inode *inodep, struct file *filp)
+{
+    pr_info("%s %d\n", __func__, __LINE__);
+
+    return 0;
+}
+
+
+static ssize_t lcd_i2c_ping(struct file *file, char __user *buf, size_t len, loff_t *pos)
+{
+    int ret = -1;
+
+    pr_info("%s %d\n", __func__, __LINE__);
+
+    ret = lcd_i2c_send_cmd(0x02, client_data_ptr->addr);
+    if(ret < 0)
+    {
+        pr_info("Ping device failed\n");
+    }
+
+    return 0;
+}
+
+
+>>>>>>> bec7cd8... Update app and lcd_i2c kernel
 u8 lcd_i2c_send_cmd(u8 command, u32 lcd_address)
 {
     u8 data_upper = 0;
@@ -220,10 +289,15 @@ int lcd_i2c_driver_remove(struct i2c_client *client)
 {
     pr_info("%s %d\n", __func__, __LINE__);
 
+<<<<<<< HEAD
     if(client_data_ptr != NULL)
     {
         kfree(client_data_ptr);
     }
+=======
+    lcd_i2c_send_cmd(LCD_CMD_CLEAR_DISPLAY, LCD_ADDRESS);
+    misc_deregister(&lcd_i2c_device);
+>>>>>>> bec7cd8... Update app and lcd_i2c kernel
 
     return 0;
 }
