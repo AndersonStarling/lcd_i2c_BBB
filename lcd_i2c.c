@@ -21,6 +21,19 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/string.h>
+#include <linux/miscdevice.h>
+
+/**************************************************************************************** 
+ * Function prototype
+ ****************************************************************************************/
+u8 lcd_init(u32 lcd_address);
+static ssize_t lcd_i2c_write(struct file *file, const char __user *buf, size_t len, loff_t *pos);
+static int lcd_i2c_open(struct inode *inode, struct file *file);
+static ssize_t lcd_i2c_ping(struct file *file, char __user *buf, size_t len, loff_t *pos);
+static int lcd_i2c_release(struct inode *inodep, struct file *filp);
+u8 lcd_i2c_send_cmd(u8 command, u32 lcd_address);
+u8 lcd_i2c_send_data(u8 data, u32 lcd_address);
+static void lcd_send_string(u8 *string, u32 lcd_address);
 
 /**************************************************************************************** 
  * Definition
@@ -60,6 +73,20 @@ static const struct of_device_id lcd_i2c_of_match[] = {
 
 
 static struct i2c_client *client_data_ptr = NULL;
+
+static const struct file_operations lcd_i2c_fops = {
+    .owner			= THIS_MODULE,
+    .write			= lcd_i2c_write,
+	.read			= lcd_i2c_ping,
+    .open			= lcd_i2c_open,
+    .release		= lcd_i2c_release
+};
+
+struct miscdevice lcd_i2c_device = {
+    .minor = MISC_DYNAMIC_MINOR,
+    .name = "lcd_i2c_1602",
+    .fops = &lcd_i2c_fops,
+};
 
 /**************************************************************************************** 
  * Function implementation
@@ -122,7 +149,6 @@ static ssize_t lcd_i2c_ping(struct file *file, char __user *buf, size_t len, lof
 
     return 0;
 }
-
 
 u8 lcd_i2c_send_cmd(u8 command, u32 lcd_address)
 {
@@ -263,10 +289,13 @@ int lcd_i2c_driver_probe(struct i2c_client *client)
 {
     int ret = -1;
 
-    pr_info("Initialize lcd ...\n");
+    ret = misc_register(&lcd_i2c_device);
+    if (ret) {
+        pr_err("can't misc_register\n");
+        return -1;
+    }
 
     client_data_ptr = client;
-    pr_info("client_data_ptr->flag = %d\n", client_data_ptr->flags);
 
     pr_info("Initialize lcd ...\n");
     ret = lcd_init(client->addr);
